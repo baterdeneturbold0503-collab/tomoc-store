@@ -1,0 +1,6 @@
+import { NextResponse } from "next/server";
+import { verifyQPayPayment } from "@/lib/qpay-payment";
+import { getSupabaseAdmin } from "@/lib/supabase-server";
+
+async function handle(request:Request){const supabase=getSupabaseAdmin();if(!supabase)return NextResponse.json({ok:false},{status:503});const url=new URL(request.url);let orderNumber=url.searchParams.get("order_number")||"",invoiceId=url.searchParams.get("invoice_id")||"";if(request.method==="POST"){try{const body=await request.json() as {order_number?:string;invoice_id?:string};orderNumber=orderNumber||body.order_number||"";invoiceId=invoiceId||body.invoice_id||""}catch{}}let query=supabase.from("qpay_invoices").select("id,invoice_id,status,last_checked_at,orders!inner(id,order_number,total,payment_status,status)");if(orderNumber)query=query.eq("orders.order_number",orderNumber);else if(invoiceId)query=query.eq("invoice_id",invoiceId);else return NextResponse.json({ok:false,error:"Missing reference"},{status:400});const {data}=await query.maybeSingle();if(!data)return NextResponse.json({ok:false,error:"Invoice not found"},{status:404});try{const result=await verifyQPayPayment(data as never);return NextResponse.json({ok:true,status:result.status})}catch{return NextResponse.json({ok:false,error:"Verification failed"},{status:502})}}
+export const GET=handle;export const POST=handle;

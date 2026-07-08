@@ -1,0 +1,13 @@
+node_modules
+.next
+.vercel
+.codex
+work
+outputs
+*.log
+*.tsbuildinfo
+
+# Local secrets and machine-specific environment files
+.env
+.env.*
+!.env.example
