@@ -1,14 +1,14 @@
 export const storeConfig = {
   contact: {
     messengerUrl:
-      process.env.NEXT_PUBLIC_MESSENGER_URL || "https://m.me/tomoc-store-placeholder",
+      process.env.NEXT_PUBLIC_MESSENGER_URL || "https://m.me/61591533627346",
     whatsappNumber:
-      process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "97600000000",
+      process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "89057004",
     whatsappDisplay:
-      process.env.NEXT_PUBLIC_WHATSAPP_DISPLAY || "00000000",
-    orderPhone: process.env.NEXT_PUBLIC_ORDER_PHONE || "00000000",
+      process.env.NEXT_PUBLIC_WHATSAPP_DISPLAY || "89057004",
+    orderPhone: process.env.NEXT_PUBLIC_ORDER_PHONE || "96052141",
     facebookUrl:
-      process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://facebook.com/tomoc-store-placeholder",
+      process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://www.facebook.com/profile.php?id=61591533627346",
     email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "hello@tomoc.mn",
   },
   delivery: {
@@ -22,4 +22,9 @@ export const storeConfig = {
   },
 } as const;
 
-export const whatsappUrl = `https://wa.me/${storeConfig.contact.whatsappNumber}`;
+const whatsappDialNumber =
+  storeConfig.contact.whatsappNumber.replace(/\D/g, "").length === 8
+    ? `976${storeConfig.contact.whatsappNumber.replace(/\D/g, "")}`
+    : storeConfig.contact.whatsappNumber.replace(/\D/g, "");
+
+export const whatsappUrl = `https://wa.me/${whatsappDialNumber}`;

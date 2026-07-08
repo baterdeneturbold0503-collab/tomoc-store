@@ -45,13 +45,13 @@ export function RoutineComparison() {
 
 export function LuxuryTestimonials() {
   const reviews = [
-    ["Номин", "Шампунь хэрэглэсний дараа үс зөөлөн, самнахад илүү эвтэйхэн санагдсан. Савлагаа нь ч маш цэвэрхэн."],
-    ["Энхжин", "Захиалга өгөхөд хурдан хариулж, хүргэлт маргааш нь ирсэн. Үйлчилгээ нь үнэхээр тухтай байлаа."],
-    ["Уянга", "Өдөр тутам хэрэглэхэд хялбар, үнэр нь зөөлөн. TOMOC-оос дахин захиална."],
+    ["Түр байршуулалт", "Энэ хэсэгт бодит худалдан авагчдын баталгаажсан сэтгэгдэл нэмэгдэнэ."],
+    ["Түр байршуулалт", "Бүтээгдэхүүн хэрэглэсэн бодит үнэлгээ, зурагтай review-г удахгүй оруулна."],
+    ["Түр байршуулалт", "Одоогоор demo бүтэц харуулж байна. Жинхэнэ хэрэглэгчийн сэтгэгдлээр солино."],
   ];
   return <section id="reviews" className="section">
-    <div className="container"><motion.div {...reveal} className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><span className="eyebrow">TOMOC COMMUNITY</span><h2 className="title display-serif">Бидний тухай тэдний үгээр.</h2></div><div className="flex items-center gap-2 text-sm font-semibold"><span className="flex text-[#b48a52]">★★★★★</span> Сэтгэгдлийн premium загвар</div></motion.div>
-      <div className="mt-10 grid gap-4 md:grid-cols-3">{reviews.map(([name,quote],index)=><motion.article key={name} {...reveal} transition={{...reveal.transition,delay:index*.07}} className="rounded-[28px] border border-black/[.07] bg-white p-7 shadow-[0_20px_70px_rgba(35,24,13,.06)] dark:border-white/10 dark:bg-neutral-900"><div className="flex text-[#b48a52]">{[0,1,2,3,4].map(i=><Star key={i} size={15} fill="currentColor"/>)}</div><blockquote className="display-serif mt-7 min-h-36 text-[25px] leading-[1.25]">“{quote}”</blockquote><div className="mt-7 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#eee7dd] text-sm font-bold text-[#6f5635]">{name[0]}</span><div><b className="text-sm">{name}</b><p className="text-[11px] text-neutral-500">Жишээ контент • Бодит сэтгэгдлээр солино</p></div></div></motion.article>)}</div>
+    <div className="container"><motion.div {...reveal} className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><span className="eyebrow">TOMOC COMMUNITY</span><h2 className="title display-serif">Хэрэглэгчийн сэтгэгдэл удахгүй.</h2><p className="subtitle mt-3 max-w-2xl">Доорх картууд нь түр байршуулсан загвар бөгөөд бодит худалдан авагчдын баталгаажсан сэтгэгдэл нэмэгдмэгц солино.</p></div><div className="rounded-full bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-[.12em] text-amber-800">Түр контент</div></motion.div>
+      <div className="mt-10 grid gap-4 md:grid-cols-3">{reviews.map(([name,quote],index)=><motion.article key={`${name}-${index}`} {...reveal} transition={{...reveal.transition,delay:index*.07}} className="rounded-[28px] border border-black/[.07] bg-white p-7 shadow-[0_20px_70px_rgba(35,24,13,.06)] dark:border-white/10 dark:bg-neutral-900"><div className="flex text-[#b48a52]">{[0,1,2,3,4].map(i=><Star key={i} size={15} fill="currentColor"/>)}</div><blockquote className="display-serif mt-7 min-h-36 text-[25px] leading-[1.25]">“{quote}”</blockquote><div className="mt-7 flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-[#eee7dd] text-sm font-bold text-[#6f5635]">{name[0]}</span><div><b className="text-sm">{name}</b><p className="text-[11px] text-neutral-500">Түр контент • Бодит сэтгэгдлээр солино</p></div></div></motion.article>)}</div>
     </div>
   </section>;
 }

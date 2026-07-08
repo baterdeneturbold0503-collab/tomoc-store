@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from "./supabase-server";
 type DbProduct={id:string;name:string;slug:string;description:string|null;benefits:string[]|null;price:number;images:string[]|null;is_featured:boolean|null;categories:{name:string}|{name:string}[]|null};
 export function mapDbProduct(item:DbProduct):Product{
   const category=Array.isArray(item.categories)?item.categories[0]?.name:item.categories?.name;
-  return {id:item.slug,name:item.name,category:category||"Бүтээгдэхүүн",price:item.price,benefit:item.benefits?.join(", ")||item.description||"",description:item.description||"",image:item.images?.[0]||"/products/argan-oil-shampoo.svg",badge:item.is_featured?"Онцлох":undefined};
+  return {id:item.slug,name:item.name,category:category||"Бүтээгдэхүүн",price:item.price,benefit:item.benefits?.join(", ")||item.description||"",description:item.description||"",image:item.images?.[0]||"/images/tomoc-beauty-campaign.png",badge:item.is_featured?"Онцлох":undefined};
 }
 export async function getServerProducts():Promise<Product[]>{
   const supabase=getSupabaseAdmin();if(!supabase)return fallbackProducts;
