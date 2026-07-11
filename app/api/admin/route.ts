@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     supabase.from("products").select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id").order("created_at", { ascending: false }),
     supabase.from("categories").select("id,name,slug").eq("is_active", true).order("sort_order"),
     supabase.from("reviews").select("id,customer_name,rating,title,body,is_verified,moderation_status,created_at,products(name)").order("created_at", { ascending: false }).limit(200),
-    supabase.from("coupons").select("id,code,discount_type,discount_value,min_order,max_uses,used_count,starts_at,expires_at,single_use,is_active").order("created_at", { ascending: false }),
+    supabase.from("coupons").select("id,code,discount_type,discount_value,min_order,max_uses,used_count,starts_at,expires_at,single_use,is_active").order("starts_at", { ascending: false }).order("code", { ascending: true }),
     supabase.from("shipping_methods").select("id,zone_id,name,code,method_type,flat_rate,free_shipping_threshold,estimated_min_days,estimated_max_days,is_active,sort_order,shipping_zones(name,code)").order("sort_order"),
   ]);
   const error = orderError || productError || categoryError || reviewError || couponError || shippingError;
