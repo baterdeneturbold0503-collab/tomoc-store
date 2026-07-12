@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     .insert({ name, slug, description: String(body.description || "").slice(0, 3000), benefits: Array.isArray(body.benefits) ? body.benefits.map(String).slice(0, 12) : [], price, stock, images, category_id: body.category_id, is_active: Boolean(body.is_active), is_featured: Boolean(body.is_featured) })
     .select()
     .single();
-  if (error) return jsonError(error.code === "23505" ? "Slug давхардсан байна." : error.message);
+  if (error) return jsonError(error.code === "23505" ? "Slug давхардсан байна. Өөр нэр оруулна уу." : error.message);
   return NextResponse.json({ product: data }, { status: 201 });
 }
 
