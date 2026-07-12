@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { authorizeAdmin } from "@/lib/admin-auth";
 
-const jsonError = (error: string, status = 400) => NextResponse.json({ error }, { status });
+const ok = (payload: Record<string, unknown> = {}) => NextResponse.json({ success: true, ...payload });
+const jsonError = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
 const slugify = (value: unknown) =>
   String(value || "")
     .trim()
@@ -17,8 +18,8 @@ const cleanImages = (value: unknown) =>
         .map((url) => url.trim())
         .slice(0, 8)
     : [];
-const productError = (message: string) => `Бүтээгдэхүүн хадгалахад алдаа гарлаа: ${message}`;
 const schemaHint = (message: string) => (message.includes("column") ? `Supabase products table-ийн багана зөрж байна: ${message}` : message);
+const productSaveError = (message: string) => `Бүтээгдэхүүн хадгалахад алдаа гарлаа: ${schemaHint(message)}`;
 const logProductAdmin = (action: string, details: Record<string, unknown>) => console.error("[admin-products]", { action, ...details });
 
 export async function GET(request: Request) {
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
   const { supabase } = auth;
   const [
     { data: orders, error: orderError },
-    { data: products, error: productErrorResult },
+    { data: products, error: productError },
     { data: categories, error: categoryError },
     { data: reviews, error: reviewError },
     { data: coupons, error: couponError },
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
     supabase.from("coupons").select("id,code,discount_type,discount_value,min_order,max_uses,used_count,starts_at,expires_at,single_use,is_active").order("starts_at", { ascending: false }).order("code", { ascending: true }),
     supabase.from("shipping_methods").select("id,zone_id,name,code,method_type,flat_rate,free_shipping_threshold,estimated_min_days,estimated_max_days,is_active,sort_order,shipping_zones(name,code)").order("sort_order"),
   ]);
-  const error = orderError || productErrorResult || categoryError || reviewError || couponError || shippingError;
+  const error = orderError || productError || categoryError || reviewError || couponError || shippingError;
   if (error) return jsonError(error.message, 500);
   return NextResponse.json({ orders, products, categories, reviews, coupons, shippingMethods, admin: auth.profile });
 }
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
       .select()
       .single();
     if (error) return jsonError(error.code === "23505" ? "Купоны код давхардсан байна." : error.message);
-    return NextResponse.json({ coupon: data }, { status: 201 });
+    return ok({ coupon: data });
   }
 
   const name = String(body.name || "").trim().slice(0, 160);
@@ -72,21 +73,21 @@ export async function POST(request: Request) {
   const price = Math.max(0, Math.round(Number(body.price) || 0));
   const stock = Math.max(0, Math.round(Number(body.stock) || 0));
   const images = cleanImages(body.images);
-  if (!name) { logProductAdmin("create_validation", { slug, reason: "missing_name" }); return jsonError("Нэр оруулна уу"); }
-  if (!slug) { logProductAdmin("create_validation", { slug, reason: "missing_slug" }); return jsonError("Slug оруулна уу"); }
-  if (price <= 0) { logProductAdmin("create_validation", { slug, reason: "invalid_price" }); return jsonError("Үнэ зөв оруулна уу"); }
-  if (!body.category_id) { logProductAdmin("create_validation", { slug, reason: "missing_category" }); return jsonError("Ангилал сонгоно уу"); }
-  if (!images.length) { logProductAdmin("create_validation", { slug, reason: "missing_image" }); return jsonError("Зурагны холбоос оруулна уу"); }
+  if (!name) return jsonError("Нэр оруулна уу");
+  if (!slug) return jsonError("Slug оруулна уу");
+  if (price <= 0) return jsonError("Үнэ зөв оруулна уу");
+  if (!body.category_id) return jsonError("Ангилал сонгоно уу");
+  if (!images.length) return jsonError("Зурагны холбоос оруулна уу");
   const { data, error } = await supabase
     .from("products")
     .insert({ name, slug, description: String(body.description || "").slice(0, 3000), benefits: Array.isArray(body.benefits) ? body.benefits.map(String).slice(0, 12) : [], price, stock, images, category_id: body.category_id, is_active: Boolean(body.is_active), is_featured: Boolean(body.is_featured) })
-    .select()
+    .select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id")
     .single();
   if (error) {
     logProductAdmin("create_error", { slug, code: error.code, message: error.message });
-    return jsonError(error.code === "23505" ? "Slug давхардсан байна. Өөр нэр оруулна уу." : productError(schemaHint(error.message)));
+    return jsonError(error.code === "23505" ? "Slug давхардсан байна. Өөр нэр оруулна уу." : productSaveError(error.message), 500);
   }
-  return NextResponse.json({ product: data }, { status: 201 });
+  return ok({ message: "Бүтээгдэхүүн амжилттай нэмэгдлээ.", product: data });
 }
 
 export async function PATCH(request: Request) {
@@ -106,11 +107,11 @@ export async function PATCH(request: Request) {
     const price = Math.max(0, Math.round(Number(body.price) || 0));
     const stock = Math.max(0, Math.round(Number(body.stock) || 0));
     const images = cleanImages(body.images);
-    if (!id) { logProductAdmin("update_validation", { reason: "missing_id" }); return jsonError("Бүтээгдэхүүний ID олдсонгүй."); }
-    if (!name) { logProductAdmin("update_validation", { id, reason: "missing_name" }); return jsonError("Нэр оруулна уу"); }
-    if (price <= 0) { logProductAdmin("update_validation", { id, reason: "invalid_price" }); return jsonError("Үнэ зөв оруулна уу"); }
-    if (!body.category_id) { logProductAdmin("update_validation", { id, reason: "missing_category" }); return jsonError("Ангилал сонгоно уу"); }
-    if (!images.length) { logProductAdmin("update_validation", { id, reason: "missing_image" }); return jsonError("Зурагны холбоос оруулна уу"); }
+    if (!id) return jsonError("Бүтээгдэхүүний ID олдсонгүй.");
+    if (!name) return jsonError("Нэр оруулна уу");
+    if (price <= 0) return jsonError("Үнэ зөв оруулна уу");
+    if (!body.category_id) return jsonError("Ангилал сонгоно уу");
+    if (!images.length) return jsonError("Зурагны холбоос оруулна уу");
     const payload = {
       name,
       price,
@@ -122,12 +123,21 @@ export async function PATCH(request: Request) {
       images,
       category_id: body.category_id,
     };
-    const { data, error } = await supabase.from("products").update(payload).eq("id", id).select("id").single();
+    const { data, error } = await supabase.from("products").update(payload).eq("id", id).select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id").single();
     if (error) {
       logProductAdmin("update_error", { id, code: error.code, message: error.message });
-      return jsonError(productError(schemaHint(error.message)), 500);
+      return jsonError(productSaveError(error.message), 500);
     }
-    if (!data) return jsonError("Бүтээгдэхүүн олдсонгүй.", 404);
+    return ok({ message: "Бүтээгдэхүүн амжилттай шинэчлэгдлээ.", product: data });
+  } else if (body.resource === "product_status") {
+    const id = String(body.id || "").trim();
+    if (!id) return jsonError("Бүтээгдэхүүний ID олдсонгүй.");
+    const { data, error } = await supabase.from("products").update({ is_active: Boolean(body.is_active) }).eq("id", id).select("id,name,slug,is_active").single();
+    if (error) {
+      logProductAdmin("status_error", { id, code: error.code, message: error.message });
+      return jsonError(`Бүтээгдэхүүний төлөв шинэчлэхэд алдаа гарлаа: ${schemaHint(error.message)}`, 500);
+    }
+    return ok({ message: "Бүтээгдэхүүний төлөв шинэчлэгдлээ.", product: data });
   } else if (body.resource === "reviews") {
     if (!["approved", "rejected"].includes(body.status)) return jsonError("Moderation төлөв буруу байна.");
     const { error } = await supabase.from("reviews").update({ moderation_status: body.status }).eq("id", body.id);
@@ -165,7 +175,7 @@ export async function PATCH(request: Request) {
   } else {
     return jsonError("Resource буруу байна.");
   }
-  return NextResponse.json({ ok: true });
+  return ok();
 }
 
 export async function DELETE(request: Request) {
@@ -178,15 +188,11 @@ export async function DELETE(request: Request) {
   if (!id) return jsonError("ID шаардлагатай.");
   if (!["products", "reviews", "coupons"].includes(resource)) return jsonError("Resource буруу байна.");
   if (resource === "products") {
-    const { data, error } = await supabase.from("products").update({ is_active: false }).eq("id", id).select("id").single();
-    if (error) {
-      logProductAdmin("deactivate_error", { id, code: error.code, message: error.message });
-      return jsonError(`Бүтээгдэхүүн нуухад алдаа гарлаа: ${schemaHint(error.message)}`, 500);
-    }
-    if (!data) return jsonError("Бүтээгдэхүүн олдсонгүй.", 404);
-    return NextResponse.json({ ok: true, deactivated: true });
+    const { data, error } = await supabase.from("products").update({ is_active: false }).eq("id", id).select("id,name,slug,is_active").single();
+    if (error) return jsonError(`Бүтээгдэхүүн нуухад алдаа гарлаа: ${schemaHint(error.message)}`, 500);
+    return ok({ message: "Бүтээгдэхүүний төлөв шинэчлэгдлээ.", product: data });
   }
   const { error } = await supabase.from(resource).delete().eq("id", id);
   if (error) return jsonError(error.message, 500);
-  return NextResponse.json({ ok: true });
+  return ok();
 }
