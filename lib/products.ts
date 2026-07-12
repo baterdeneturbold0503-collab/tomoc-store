@@ -6,6 +6,7 @@ export type Product = {
   benefit: string;
   description: string;
   image: string;
+  images?: string[];
   rating?: number;
   reviews?: number;
   badge?: string;
