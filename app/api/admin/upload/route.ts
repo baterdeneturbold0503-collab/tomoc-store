@@ -32,8 +32,9 @@ export async function POST(request: Request) {
   if (bucketError) return jsonError(`Supabase Storage bucket үүсгэхэд алдаа гарлаа: ${bucketError.message}`, 500);
 
   const form = await request.formData();
-  const files = form.getAll("files").filter((value): value is File => value instanceof File).slice(0, 8);
+  const files = form.getAll("files").filter((value): value is File => value instanceof File);
   if (!files.length) return jsonError("Зураг сонгоно уу");
+  if (files.length > 8) return jsonError("8-аас олон зураг оруулах боломжгүй");
 
   const urls: string[] = [];
   for (const file of files) {
