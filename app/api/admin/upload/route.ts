@@ -1,53 +1,57 @@
 import { NextResponse } from "next/server";
 import { authorizeAdmin } from "@/lib/admin-auth";
 
-const allowed = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const BUCKET = "product-images";
+const MAX_SIZE = 5 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const EXTENSION_BY_TYPE: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
 
-type CloudinaryUpload = { secure_url?: string; error?: { message?: string } };
+const jsonError = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
+const safeName = (name: string) => name.toLowerCase().replace(/\.[^.]+$/, "").replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80) || "product-image";
 
-function optimizedUrl(url: string) {
-  return url.replace("/upload/", "/upload/f_auto,q_auto,c_limit,w_1600/");
+async function ensureBucket(supabase: NonNullable<Awaited<ReturnType<typeof authorizeAdmin>>["supabase"]>) {
+  const { data } = await supabase.storage.getBucket(BUCKET);
+  if (data) return null;
+  const { error } = await supabase.storage.createBucket(BUCKET, {
+    public: true,
+    fileSizeLimit: MAX_SIZE,
+    allowedMimeTypes: Array.from(ALLOWED_TYPES),
+  });
+  return error;
 }
 
 export async function POST(request: Request) {
   const auth = await authorizeAdmin(request);
   if (auth.error) return auth.error;
 
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  if (!cloudName || !apiKey || !apiSecret) {
-    return NextResponse.json({ error: "Cloudinary тохиргоо хийгдээгүй байна." }, { status: 503 });
-  }
+  const bucketError = await ensureBucket(auth.supabase);
+  if (bucketError) return jsonError(`Supabase Storage bucket үүсгэхэд алдаа гарлаа: ${bucketError.message}`, 500);
 
   const form = await request.formData();
   const files = form.getAll("files").filter((value): value is File => value instanceof File).slice(0, 8);
-  if (!files.length) return NextResponse.json({ error: "Зураг сонгоно уу." }, { status: 400 });
+  if (!files.length) return jsonError("Зураг сонгоно уу");
 
-  const uploaded: string[] = [];
+  const urls: string[] = [];
   for (const file of files) {
-    if (!allowed.has(file.type) || file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: "Зураг JPG, PNG, WebP эсвэл AVIF, 5MB-аас бага байна." }, { status: 400 });
-    }
+    if (!ALLOWED_TYPES.has(file.type)) return jsonError("Зөвхөн JPG, PNG, WEBP зураг оруулна уу");
+    if (file.size > MAX_SIZE) return jsonError("Зураг 5MB-аас их байна");
 
-    const uploadForm = new FormData();
-    uploadForm.append("file", file);
-    uploadForm.append("folder", `tomoc/products/${auth.user.id}`);
-    uploadForm.append("use_filename", "true");
-    uploadForm.append("unique_filename", "true");
-    uploadForm.append("overwrite", "false");
-
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-      method: "POST",
-      headers: { Authorization: `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString("base64")}` },
-      body: uploadForm,
+    const extension = EXTENSION_BY_TYPE[file.type] || "jpg";
+    const path = `${auth.user.id}/${Date.now()}-${crypto.randomUUID()}-${safeName(file.name)}.${extension}`;
+    const { error } = await auth.supabase.storage.from(BUCKET).upload(path, file, {
+      cacheControl: "31536000",
+      contentType: file.type,
+      upsert: false,
     });
-    const result = (await response.json()) as CloudinaryUpload;
-    if (!response.ok || !result.secure_url) {
-      return NextResponse.json({ error: result.error?.message || "Зураг байршуулахад алдаа гарлаа." }, { status: 502 });
-    }
-    uploaded.push(optimizedUrl(result.secure_url));
+    if (error) return jsonError(`Зураг upload хийхэд алдаа гарлаа: ${error.message}`, 500);
+
+    const { data } = auth.supabase.storage.from(BUCKET).getPublicUrl(path);
+    urls.push(data.publicUrl);
   }
 
-  return NextResponse.json({ urls: uploaded });
+  return NextResponse.json({ success: true, urls });
 }
