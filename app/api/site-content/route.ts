@@ -5,7 +5,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const noStore = { "cache-control": "no-store, no-cache, must-revalidate" };
+const noStore = { "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate" };
 
 export async function GET() {
   const supabase = getSupabaseAdmin();

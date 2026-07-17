@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { authorizeAdmin } from "@/lib/admin-auth";
 import { normalizeSiteContent } from "@/lib/site-content";
 
@@ -184,6 +185,7 @@ export async function PATCH(request: Request) {
       console.error("[site-content-save]", { message: error.message, code: error.code });
       return jsonError(`Контент хадгалахад алдаа гарлаа: ${error.message}`, 500);
     }
+    revalidatePath("/");
     return ok({ message: "Контент амжилттай хадгалагдлаа", content });
   } else {
     return jsonError("Resource буруу байна.");
