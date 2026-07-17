@@ -25,7 +25,7 @@ const facebook=storeConfig.contact.facebookUrl;
 export default function Storefront(){
   const {cartCount,add}=useStore(); const [modal,setModal]=useState<Modal>(null); const [selected,setSelected]=useState<Product|null>(null); const [dark,setDark]=useState(false); const [menu,setMenu]=useState(false); const [content,setContent]=useState<SiteContent>(defaultSiteContent);
   useEffect(()=>{const d=localStorage.getItem("tomoc-theme")==="dark";setDark(d);document.documentElement.classList.toggle("dark",d)},[]);
-  useEffect(()=>{let active=true;fetch("/api/site-content").then(response=>response.ok?response.json():Promise.reject()).then(result=>{if(active&&result.content)setContent(result.content)}).catch(()=>{});return()=>{active=false}},[]);
+  useEffect(()=>{let active=true;fetch("/api/site-content",{cache:"no-store"}).then(response=>response.ok?response.json():Promise.reject()).then(result=>{if(active&&result.content)setContent(result.content)}).catch(()=>{});return()=>{active=false}},[]);
   const theme=()=>setDark(v=>{document.documentElement.classList.toggle("dark",!v);localStorage.setItem("tomoc-theme",!v?"dark":"light");return !v});
   const openProduct=(p:Product)=>{trackItems("select_item",[analyticsItem(p)],{item_list_name:"Онцлох бүтээгдэхүүн"},{dedupeMs:250});trackItems("view_item",[analyticsItem(p)],{},{dedupeMs:250});setSelected(p);setModal("product")};
   useEffect(()=>{document.body.classList.toggle("no-scroll",!!modal||menu)},[modal,menu]);

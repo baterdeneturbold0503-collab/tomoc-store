@@ -180,7 +180,10 @@ export async function PATCH(request: Request) {
     const { error } = await supabase
       .from("site_content")
       .upsert({ key: "homepage", value: content, updated_at: new Date().toISOString() }, { onConflict: "key" });
-    if (error) return jsonError("Контент хадгалахад алдаа гарлаа", 500);
+    if (error) {
+      console.error("[site-content-save]", { message: error.message, code: error.code });
+      return jsonError(`Контент хадгалахад алдаа гарлаа: ${error.message}`, 500);
+    }
     return ok({ message: "Контент амжилттай хадгалагдлаа", content });
   } else {
     return jsonError("Resource буруу байна.");
