@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     { data: shippingMethods, error: shippingError },
     { data: siteContent },
   ] = await Promise.all([
-    supabase.from("orders").select("id,order_number,customer_name,phone,total,status,payment_status,created_at").order("created_at", { ascending: false }).limit(100),
+    supabase.from("orders").select("id,order_number,customer_name,phone,total,status,payment_status,created_at,shipping_address,order_items(product_name,quantity,unit_price)").order("created_at", { ascending: false }).limit(100),
     supabase.from("products").select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id").order("created_at", { ascending: false }),
     supabase.from("categories").select("id,name,slug").eq("is_active", true).order("sort_order"),
     supabase.from("reviews").select("id,customer_name,rating,title,body,is_verified,moderation_status,created_at,products(name)").order("created_at", { ascending: false }).limit(200),
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
   if (!slug) return jsonError("Slug оруулна уу");
   if (price <= 0) return jsonError("Үнэ зөв оруулна уу");
   if (!body.category_id) return jsonError("Ангилал сонгоно уу");
-  if (!images.length) return jsonError("Зурагны холбоос оруулна уу");
+  if (!images.length) return jsonError("Зураг сонгоно уу");
   const { data, error } = await supabase
     .from("products")
     .insert({ name, slug, description: String(body.description || "").slice(0, 3000), benefits: Array.isArray(body.benefits) ? body.benefits.map(String).slice(0, 12) : [], price, stock, images, category_id: body.category_id, is_active: Boolean(body.is_active), is_featured: Boolean(body.is_featured) })
@@ -115,7 +115,7 @@ export async function PATCH(request: Request) {
     if (!name) return jsonError("Нэр оруулна уу");
     if (price <= 0) return jsonError("Үнэ зөв оруулна уу");
     if (!body.category_id) return jsonError("Ангилал сонгоно уу");
-    if (!images.length) return jsonError("Зурагны холбоос оруулна уу");
+    if (!images.length) return jsonError("Зураг сонгоно уу");
     const payload = {
       name,
       price,
