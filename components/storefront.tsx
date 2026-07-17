@@ -28,6 +28,9 @@ export default function Storefront(){
   useEffect(()=>{let active=true;fetch("/api/site-content",{cache:"no-store"}).then(response=>response.ok?response.json():Promise.reject()).then(result=>{if(active&&result.content)setContent(result.content)}).catch(()=>{});return()=>{active=false}},[]);
   const theme=()=>setDark(v=>{document.documentElement.classList.toggle("dark",!v);localStorage.setItem("tomoc-theme",!v?"dark":"light");return !v});
   const openProduct=(p:Product)=>{trackItems("select_item",[analyticsItem(p)],{item_list_name:"Онцлох бүтээгдэхүүн"},{dedupeMs:250});trackItems("view_item",[analyticsItem(p)],{},{dedupeMs:250});setSelected(p);setModal("product")};
+  const heroImage=content.heroImage||defaultSiteContent.heroImage;
+  const mobileHeroImage=content.mobileHeroImage||heroImage;
+  const aboutImage=content.aboutImage||defaultSiteContent.aboutImage;
   useEffect(()=>{document.body.classList.toggle("no-scroll",!!modal||menu)},[modal,menu]);
   return <>
     <div className="bg-ink py-2.5 text-center text-xs font-semibold tracking-wide text-white">УЛААНБААТАРТ 100,000₮-ӨӨС ДЭЭШ ЗАХИАЛГАД ХҮРГЭЛТ ҮНЭГҮЙ</div>
@@ -48,7 +51,8 @@ export default function Storefront(){
     <main>
       <section id="home" className="container py-5 md:py-8">
         <div className="relative min-h-[720px] overflow-hidden rounded-[32px] bg-cloud shadow-soft md:min-h-[650px] dark:bg-neutral-900">
-          <Image src="/images/tomoc-hero.png" alt="TOMOC Store гоо сайхан болон спорт хувцасны premium цуглуулга" fill priority sizes="(max-width:768px) 100vw, 1200px" className="object-cover object-[62%_center] md:object-center"/>
+          <Image src={heroImage} alt="TOMOC Store гоо сайхан болон спорт хувцасны premium цуглуулга" fill priority sizes="(max-width:768px) 100vw, 1200px" className="hidden object-cover object-[62%_center] md:block md:object-center"/>
+          <Image src={mobileHeroImage} alt="TOMOC Store гоо сайхан болон спорт хувцасны premium цуглуулга" fill priority sizes="100vw" className="object-cover object-[62%_center] md:hidden"/>
           <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/5 to-transparent md:bg-gradient-to-r md:from-white md:via-white/60 md:to-transparent dark:md:from-black dark:md:via-black/30"/>
           <motion.div initial={{opacity:0,y:30}} animate={{opacity:1,y:0}} transition={{duration:.75}} className="absolute inset-x-5 bottom-8 max-w-[600px] text-white md:bottom-auto md:left-16 md:right-auto md:top-1/2 md:-translate-y-1/2 md:text-ink dark:md:text-white">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-xs font-bold text-ink shadow"><Sparkles size={14} className="text-gold"/> {content.heroEyebrow}</div>
@@ -61,12 +65,12 @@ export default function Storefront(){
       </section>
 
       <LuxuryTrustStrip/>
-      <LuxuryShowcase onProduct={openProduct} title={content.signatureTitle} subtitle={content.signatureSubtitle}/>
+      <LuxuryShowcase onProduct={openProduct} title={content.signatureTitle} subtitle={content.signatureSubtitle} image={content.signatureImage||defaultSiteContent.signatureImage}/>
       <Products openProduct={openProduct}/>
-      <RoutineComparison/>
+      <RoutineComparison beforeImage={content.beforeImage||defaultSiteContent.beforeImage} afterImage={content.afterImage||defaultSiteContent.afterImage}/>
 
       <section id="about" className="section bg-cloud dark:bg-neutral-900"><div className="container grid items-center gap-10 md:grid-cols-2 md:gap-16">
-        <motion.div {...fade} className="relative min-h-[480px] overflow-hidden rounded-4xl"><Image src="/images/tomoc-beauty-campaign.png" fill sizes="(max-width:768px) 100vw, 50vw" alt="TOMOC Store-ийн сонгосон гоо сайхны бүтээгдэхүүн" className="object-cover"/><div className="absolute bottom-5 left-5 rounded-2xl bg-white p-4 text-ink shadow"><b className="block text-2xl">100%</b><span className="text-xs text-neutral-500">чанарт анхаарсан сонголт</span></div></motion.div>
+        <motion.div {...fade} className="relative min-h-[480px] overflow-hidden rounded-4xl"><Image src={aboutImage} fill sizes="(max-width:768px) 100vw, 50vw" alt="TOMOC Store-ийн сонгосон гоо сайхны бүтээгдэхүүн" className="object-cover"/><div className="absolute bottom-5 left-5 rounded-2xl bg-white p-4 text-ink shadow"><b className="block text-2xl">100%</b><span className="text-xs text-neutral-500">чанарт анхаарсан сонголт</span></div></motion.div>
         <motion.div {...fade}><span className="eyebrow">TOMOC-ийн түүх</span><h2 className="title">{content.aboutTitle}</h2><p className="subtitle">{content.aboutBody}</p><div className="mt-8 grid grid-cols-3 gap-4"><Stat n="5" t="бүтээгдэхүүн"/><Stat n="2" t="ангилал"/><Stat n="24–48" t="цагийн хүргэлт"/></div></motion.div>
       </div></section>
 
