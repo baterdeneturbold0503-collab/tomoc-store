@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authorizeAdmin } from "@/lib/admin-auth";
+import { normalizeSiteContent } from "@/lib/site-content";
 
 const ok = (payload: Record<string, unknown> = {}) => NextResponse.json({ success: true, ...payload });
 const jsonError = (error: string, status = 400) => NextResponse.json({ success: false, error }, { status });
@@ -33,6 +34,7 @@ export async function GET(request: Request) {
     { data: reviews, error: reviewError },
     { data: coupons, error: couponError },
     { data: shippingMethods, error: shippingError },
+    { data: siteContent },
   ] = await Promise.all([
     supabase.from("orders").select("id,order_number,customer_name,phone,total,status,payment_status,created_at").order("created_at", { ascending: false }).limit(100),
     supabase.from("products").select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id").order("created_at", { ascending: false }),
@@ -40,10 +42,11 @@ export async function GET(request: Request) {
     supabase.from("reviews").select("id,customer_name,rating,title,body,is_verified,moderation_status,created_at,products(name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("coupons").select("id,code,discount_type,discount_value,min_order,max_uses,used_count,starts_at,expires_at,single_use,is_active").order("starts_at", { ascending: false }).order("code", { ascending: true }),
     supabase.from("shipping_methods").select("id,zone_id,name,code,method_type,flat_rate,free_shipping_threshold,estimated_min_days,estimated_max_days,is_active,sort_order,shipping_zones(name,code)").order("sort_order"),
+    supabase.from("site_content").select("value").eq("key", "homepage").maybeSingle(),
   ]);
   const error = orderError || productError || categoryError || reviewError || couponError || shippingError;
   if (error) return jsonError(error.message, 500);
-  return NextResponse.json({ orders, products, categories, reviews, coupons, shippingMethods, admin: auth.profile });
+  return NextResponse.json({ orders, products, categories, reviews, coupons, shippingMethods, siteContent: normalizeSiteContent(siteContent?.value), admin: auth.profile });
 }
 
 export async function POST(request: Request) {
@@ -172,6 +175,13 @@ export async function PATCH(request: Request) {
     if (!payload.name) return jsonError("Хүргэлтийн нэр шаардлагатай.");
     const { error } = await supabase.from("shipping_methods").update(payload).eq("id", body.id);
     if (error) return jsonError(error.message, 500);
+  } else if (body.resource === "site_content") {
+    const content = normalizeSiteContent(body.content);
+    const { error } = await supabase
+      .from("site_content")
+      .upsert({ key: "homepage", value: content, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    if (error) return jsonError("Контент хадгалахад алдаа гарлаа", 500);
+    return ok({ message: "Контент амжилттай хадгалагдлаа", content });
   } else {
     return jsonError("Resource буруу байна.");
   }

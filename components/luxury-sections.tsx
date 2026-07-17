@@ -13,14 +13,14 @@ const reveal = {
   transition: { duration: 0.7, ease: "easeOut" as const },
 };
 
-export function LuxuryShowcase({ onProduct }:{ onProduct:(product:Product)=>void }) {
+export function LuxuryShowcase({ onProduct,title,subtitle }:{ onProduct:(product:Product)=>void;title?:string;subtitle?:string }) {
   const heroProduct = products[0];
   return <section className="section overflow-hidden">
     <div className="container">
       <motion.div {...reveal} className="luxury-panel relative overflow-hidden rounded-[38px] bg-[#171512] text-white">
         <div className="grid min-h-[680px] md:grid-cols-[.88fr_1.12fr]">
           <div className="relative z-10 flex flex-col justify-between p-8 md:p-14 lg:p-16">
-            <div><span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.24em] text-[#d6bd91]"><Sparkles size={14}/> TOMOC SIGNATURE</span><h2 className="display-serif mt-7 text-[48px] leading-[.92] tracking-[-.045em] md:text-[72px]">Үсний тань өдөр тутмын жижиг luxury.</h2><p className="mt-7 max-w-md text-[16px] leading-7 text-white/65">Зөөлөн цэвэрлэгээ, тэжээллэг арчилгаа, торгомсог мэдрэмжийг нэг энгийн ritual болгон хувирга.</p></div>
+            <div><span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.24em] text-[#d6bd91]"><Sparkles size={14}/> TOMOC SIGNATURE</span><h2 className="display-serif mt-7 text-[48px] leading-[.92] tracking-[-.045em] md:text-[72px]">{title||"Үсний тань өдөр тутмын жижиг luxury."}</h2><p className="mt-7 max-w-md text-[16px] leading-7 text-white/65">{subtitle||"Зөөлөн цэвэрлэгээ, тэжээллэг арчилгаа, торгомсог мэдрэмжийг нэг энгийн ritual болгон хувирга."}</p></div>
             <div className="mt-10"><div className="mb-6 flex items-end gap-3"><b className="text-3xl">{money(heroProduct.price)}</b><span className="pb-1 text-xs text-white/45">Монголд бэлэн</span></div><button onClick={()=>onProduct(heroProduct)} className="btn bg-white text-ink"><ShoppingBag size={17}/> Дэлгэрэнгүй харах</button></div>
           </div>
           <div className="relative min-h-[500px] overflow-hidden md:min-h-full"><Image src="/images/tomoc-beauty-campaign.png" alt="TOMOC үс арчилгааны luxury campaign" fill sizes="(max-width:768px) 100vw, 58vw" className="object-cover object-center"/><div className="absolute inset-0 bg-gradient-to-t from-[#171512]/70 via-transparent to-transparent md:bg-gradient-to-r md:from-[#171512]/55 md:via-transparent"/><div className="absolute bottom-6 right-6 rounded-2xl border border-white/20 bg-black/20 px-4 py-3 backdrop-blur-xl"><p className="text-[10px] font-bold uppercase tracking-[.18em] text-white/55">Daily ritual</p><p className="mt-1 text-sm font-semibold">Nourish • Soften • Shine</p></div></div>
