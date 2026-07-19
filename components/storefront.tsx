@@ -13,6 +13,7 @@ import CheckoutForm from "./checkout-form";
 import WishlistLink from "./wishlist-link";
 import { analyticsItem, trackEvent, trackItems } from "@/lib/analytics";
 import { defaultSiteContent, type SiteContent } from "@/lib/site-content";
+import type { ChatContext } from "@/lib/assistant/types";
 
 const CustomerAccount=dynamic(()=>import("./customer-account"),{loading:()=> <div className="grid min-h-[320px] place-items-center"><LoaderCircle className="animate-spin"/></div>});
 
@@ -149,9 +150,29 @@ function ProductDetail({p,catalog,setModal}:{p:Product,catalog:Product[],setModa
 function Empty({icon,title,text}:{icon:React.ReactNode,title:string,text:string}){return <div className="grid min-h-[420px] place-items-center text-center"><div><div className="mx-auto mb-5 grid h-20 w-20 place-items-center rounded-full bg-cloud dark:bg-neutral-800">{icon}</div><h3 className="text-xl font-bold">{title}</h3><p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-neutral-500">{text}</p></div></div>}
 
 function Chat(){
+  type ChatMessage={role:"assistant"|"user";text:string};
   const [open,setOpen]=useState(false);
-  const [messages,setMessages]=useState<string[]>(["Сайн байна уу! Би TOMOC-ийн туслах. Бүтээгдэхүүн, размер эсвэл хүргэлтийн талаар асуугаарай."]);
+  const [messages,setMessages]=useState<ChatMessage[]>([{role:"assistant",text:"Сайн байна уу! Би TOMOC AI туслах. Бүтээгдэхүүний үнэ, размер, өнгө, үлдэгдэл, хүргэлт, төлбөрийн талаар асуугаарай."}]);
+  const [quickReplies,setQuickReplies]=useState(["Бүтээгдэхүүн","Үнэ асуух","Размер асуух","Хүргэлт","Захиалга"]);
+  const [context,setContext]=useState<ChatContext>({});
   const [q,setQ]=useState("");
-  const send=(event:React.FormEvent)=>{event.preventDefault();if(!q)return;const normalized=q.toLowerCase();const answer=normalized.includes("хүргэлт")?storeConfig.delivery.short:normalized.includes("төлбөр")?storeConfig.payment.instructions:normalized.includes("размер")?"Танд зөв размер санал болгохын тулд өндөр, жингээ бичээрэй.":"Таны асуултыг ойлголоо. Манай зөвлөхтэй Messenger-ээр холбож өгч болох уу?";setMessages(current=>[...current,q,answer]);setQ("")};
-  return <div className="fixed bottom-24 left-4 z-30 md:bottom-5"><AnimatePresence>{open&&<motion.div initial={{opacity:0,y:15,scale:.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:15,scale:.96}} className="mb-3 flex h-[440px] w-[calc(100vw-32px)] max-w-[360px] flex-col overflow-hidden rounded-3xl border border-black/10 bg-[var(--bg)] shadow-2xl dark:border-white/10"><div className="flex items-center justify-between bg-ink p-4 text-white"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-white/15"><Bot size={20}/></div><div><b className="text-sm">TOMOC AI туслах</b><p className="text-[10px] text-green-300">● Онлайн</p></div></div><button onClick={()=>setOpen(false)}><X size={18}/></button></div><div className="flex-1 space-y-3 overflow-auto p-4">{messages.map((message,index)=><div key={index} className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-5 ${index%2?"ml-auto bg-ink text-white":"bg-cloud dark:bg-neutral-800"}`}>{message}</div>)}</div><form onSubmit={send} className="flex gap-2 border-t border-black/10 p-3 dark:border-white/10"><input className="input" value={q} onChange={event=>setQ(event.target.value)} placeholder="Асуултаа бичнэ үү..."/><button aria-label="Илгээх" className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-white"><ArrowRight/></button></form></motion.div>}</AnimatePresence><button aria-label="AI туслах нээх" onClick={()=>setOpen(!open)} className="flex h-12 w-12 items-center justify-center rounded-full bg-ink font-bold text-white shadow-xl md:h-13 md:w-auto md:gap-2 md:px-5"><Bot size={20}/><span className="hidden text-sm md:inline">AI туслах</span></button></div>
+  const [loading,setLoading]=useState(false);
+  const scrollRef=useRef<HTMLDivElement|null>(null);
+  useEffect(()=>{scrollRef.current?.scrollTo({top:scrollRef.current.scrollHeight,behavior:"smooth"})},[messages,loading]);
+  const ask=async(text:string)=>{
+    const question=text.trim();if(!question||loading)return;
+    setMessages(current=>[...current,{role:"user",text:question}]);setQ("");setLoading(true);
+    try{
+      const response=await fetch("/api/assistant",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({message:question,context})});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.reply||"Туслах түр ажиллахгүй байна.");
+      setContext(result.context||{});
+      if(Array.isArray(result.quickReplies)&&result.quickReplies.length)setQuickReplies(result.quickReplies);
+      setMessages(current=>[...current,{role:"assistant",text:String(result.reply||"Мэдээлэл олдсонгүй.")}]);
+    }catch(cause){
+      setMessages(current=>[...current,{role:"assistant",text:cause instanceof Error?cause.message:"Туслах түр ажиллахгүй байна. Түр хүлээгээд дахин асуугаарай."}]);
+    }finally{setLoading(false)}
+  };
+  const send=(event:React.FormEvent)=>{event.preventDefault();void ask(q)};
+  return <div className="fixed bottom-24 left-4 z-30 md:bottom-5"><AnimatePresence>{open&&<motion.div initial={{opacity:0,y:15,scale:.96}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:15,scale:.96}} className="mb-3 flex h-[500px] w-[calc(100vw-32px)] max-w-[380px] flex-col overflow-hidden rounded-3xl border border-black/10 bg-[var(--bg)] shadow-2xl dark:border-white/10"><div className="flex items-center justify-between bg-ink p-4 text-white"><div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-white/15"><Bot size={20}/></div><div><b className="text-sm">TOMOC AI туслах</b><p className="text-[10px] text-green-300">● Онлайн • live product data</p></div></div><button aria-label="AI туслах хаах" onClick={()=>setOpen(false)}><X size={18}/></button></div><div ref={scrollRef} className="flex-1 space-y-3 overflow-auto p-4">{messages.map((message,index)=><div key={`${message.role}-${index}`} className={`max-w-[88%] whitespace-pre-line rounded-2xl px-4 py-3 text-sm leading-5 ${message.role==="user"?"ml-auto bg-ink text-white":"bg-cloud dark:bg-neutral-800"}`}>{message.text}</div>)}{loading&&<div className="inline-flex items-center gap-2 rounded-2xl bg-cloud px-4 py-3 text-sm text-neutral-500 dark:bg-neutral-800"><LoaderCircle className="animate-spin" size={16}/> Шалгаж байна...</div>}</div><div className="hide-scroll flex gap-2 overflow-x-auto border-t border-black/10 px-3 py-2 dark:border-white/10">{quickReplies.map(reply=><button key={reply} type="button" onClick={()=>ask(context.activeProductName?`${context.activeProductName} ${reply}`:reply)} disabled={loading} className="whitespace-nowrap rounded-full bg-cloud px-3 py-1.5 text-xs font-bold disabled:opacity-40 dark:bg-neutral-800">{reply}</button>)}</div><form onSubmit={send} className="flex gap-2 border-t border-black/10 p-3 dark:border-white/10"><input className="input" value={q} onChange={event=>setQ(event.target.value)} placeholder="Жишээ: Анн Чэри хэд вэ?"/><button disabled={loading||!q.trim()} aria-label="Илгээх" className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-ink text-white disabled:opacity-40"><ArrowRight/></button></form></motion.div>}</AnimatePresence><button aria-label="AI туслах нээх" onClick={()=>setOpen(!open)} className="flex h-12 w-12 items-center justify-center rounded-full bg-ink font-bold text-white shadow-xl md:h-13 md:w-auto md:gap-2 md:px-5"><Bot size={20}/><span className="hidden text-sm md:inline">AI туслах</span></button></div>
 }
