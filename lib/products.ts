@@ -7,6 +7,9 @@ export type Product = {
   description: string;
   image: string;
   images?: string[];
+  stock?: number;
+  isActive?: boolean;
+  isFeatured?: boolean;
   rating?: number;
   reviews?: number;
   badge?: string;
