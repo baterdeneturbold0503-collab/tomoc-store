@@ -24,12 +24,17 @@ type DbVariant = {
   price_delta: number | null;
 };
 
+type DbAlias = {
+  id: string;
+  aliases: string[] | null;
+};
+
 const builtInAliases: Record<string, string[]> = {
   "ann-chery": ["ann chery", "annchery", "анн чери", "анн чэри", "аннчери", "анн чери корсет", "латекс корсет", "корсет"],
 };
 
 export function searchableText(product: AssistantProduct) {
-  const aliases = builtInAliases[product.slug] || [];
+  const aliases = [...(builtInAliases[product.slug] || []), ...(product.aliases || [])];
   return normalizeText([
     product.name,
     product.slug,
@@ -43,7 +48,7 @@ export function searchableText(product: AssistantProduct) {
 function scoreProduct(message: string, product: AssistantProduct) {
   const text = normalizeText(message);
   const haystack = searchableText(product);
-  const aliases = (builtInAliases[product.slug] || []).map(normalizeText);
+  const aliases = [...(builtInAliases[product.slug] || []), ...(product.aliases || [])].map(normalizeText);
   let score = 0;
   if (normalizeText(product.name) && text.includes(normalizeText(product.name))) score += 100;
   if (text.includes(normalizeText(product.slug))) score += 90;
@@ -76,12 +81,19 @@ export async function loadProductKnowledgeBase(): Promise<AssistantProduct[]> {
 
   const ids = data.map((item) => item.id);
   const categoryIds = Array.from(new Set(data.map((item) => item.category_id).filter(Boolean)));
-  const [{ data: variants }, { data: categories }] = await Promise.all([
+  const [{ data: variants }, { data: categories }, aliasesResult] = await Promise.all([
     supabase.from("product_variants").select("product_id,name,value,stock,price_delta").in("product_id", ids),
     categoryIds.length ? supabase.from("categories").select("id,name").in("id", categoryIds) : Promise.resolve({ data: [] }),
+    supabase.from("products").select("id,aliases").in("id", ids),
   ]);
 
   const categoryMap = new Map((categories || []).map((item) => [item.id, item.name]));
+  const aliasMap = new Map<string, string[]>();
+  if (!aliasesResult.error) {
+    for (const item of (aliasesResult.data || []) as DbAlias[]) {
+      aliasMap.set(item.id, item.aliases || []);
+    }
+  }
 
   const variantMap = new Map<string, ProductVariant[]>();
   for (const item of (variants || []) as DbVariant[]) {
@@ -105,6 +117,7 @@ export async function loadProductKnowledgeBase(): Promise<AssistantProduct[]> {
     stock: item.stock ?? 0,
     images: item.images || [],
     category: item.category_id ? categoryMap.get(item.category_id) : undefined,
+    aliases: aliasMap.get(item.id) || [],
     variants: variantMap.get(item.id) || [],
   }));
 }

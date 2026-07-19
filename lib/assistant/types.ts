@@ -28,6 +28,7 @@ export type AssistantProduct = {
   stock: number;
   images: string[];
   category?: string;
+  aliases?: string[];
   variants: ProductVariant[];
 };
 

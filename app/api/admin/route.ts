@@ -20,9 +20,25 @@ const cleanImages = (value: unknown) =>
         .map((url) => url.trim())
         .slice(0, 8)
     : [];
+const cleanVariants = (value: unknown) =>
+  Array.isArray(value)
+    ? value
+        .map((item) => {
+          const variant = (item || {}) as Record<string, unknown>;
+          return {
+            name: "size",
+            value: String(variant.value || "").trim().slice(0, 40),
+            stock: Math.max(0, Math.round(Number(variant.stock) || 0)),
+            price_delta: 0,
+          };
+        })
+        .filter((variant) => variant.value)
+        .slice(0, 20)
+    : [];
 const schemaHint = (message: string) => (message.includes("column") ? `Supabase products table-ийн багана зөрж байна: ${message}` : message);
 const productSaveError = (message: string) => `Бүтээгдэхүүн хадгалахад алдаа гарлаа: ${schemaHint(message)}`;
 const logProductAdmin = (action: string, details: Record<string, unknown>) => console.error("[admin-products]", { action, ...details });
+const productSelect = "id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id,product_variants(id,name,value,stock,price_delta)";
 
 export async function GET(request: Request) {
   const auth = await authorizeAdmin(request);
@@ -38,7 +54,7 @@ export async function GET(request: Request) {
     { data: siteContent },
   ] = await Promise.all([
     supabase.from("orders").select("id,order_number,customer_name,phone,total,status,payment_status,created_at,shipping_address,order_items(product_name,quantity,unit_price)").order("created_at", { ascending: false }).limit(100),
-    supabase.from("products").select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id").order("created_at", { ascending: false }),
+    supabase.from("products").select(productSelect).order("created_at", { ascending: false }),
     supabase.from("categories").select("id,name,slug").eq("is_active", true).order("sort_order"),
     supabase.from("reviews").select("id,customer_name,rating,title,body,is_verified,moderation_status,created_at,products(name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("coupons").select("id,code,discount_type,discount_value,min_order,max_uses,used_count,starts_at,expires_at,single_use,is_active").order("starts_at", { ascending: false }).order("code", { ascending: true }),
@@ -77,6 +93,7 @@ export async function POST(request: Request) {
   const price = Math.max(0, Math.round(Number(body.price) || 0));
   const stock = Math.max(0, Math.round(Number(body.stock) || 0));
   const images = cleanImages(body.images);
+  const variants = cleanVariants(body.variants);
   if (!name) return jsonError("Нэр оруулна уу");
   if (!slug) return jsonError("Slug оруулна уу");
   if (price <= 0) return jsonError("Үнэ зөв оруулна уу");
@@ -85,13 +102,21 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("products")
     .insert({ name, slug, description: String(body.description || "").slice(0, 3000), benefits: Array.isArray(body.benefits) ? body.benefits.map(String).slice(0, 12) : [], price, stock, images, category_id: body.category_id, is_active: Boolean(body.is_active), is_featured: Boolean(body.is_featured) })
-    .select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id")
+    .select(productSelect)
     .single();
   if (error) {
     logProductAdmin("create_error", { slug, code: error.code, message: error.message });
     return jsonError(error.code === "23505" ? "Slug давхардсан байна. Өөр нэр оруулна уу." : productSaveError(error.message), 500);
   }
-  return ok({ message: "Бүтээгдэхүүн амжилттай нэмэгдлээ.", product: data });
+  if (variants.length) {
+    const { error: variantError } = await supabase.from("product_variants").insert(variants.map((variant) => ({ ...variant, product_id: data.id })));
+    if (variantError) {
+      logProductAdmin("create_variants_error", { product_id: data.id, code: variantError.code, message: variantError.message });
+      return jsonError(productSaveError(variantError.message), 500);
+    }
+  }
+  const { data: productWithVariants } = await supabase.from("products").select(productSelect).eq("id", data.id).single();
+  return ok({ message: "Бүтээгдэхүүн амжилттай нэмэгдлээ.", product: productWithVariants || data });
 }
 
 export async function PATCH(request: Request) {
@@ -111,6 +136,7 @@ export async function PATCH(request: Request) {
     const price = Math.max(0, Math.round(Number(body.price) || 0));
     const stock = Math.max(0, Math.round(Number(body.stock) || 0));
     const images = cleanImages(body.images);
+    const variants = cleanVariants(body.variants);
     if (!id) return jsonError("Бүтээгдэхүүний ID олдсонгүй.");
     if (!name) return jsonError("Нэр оруулна уу");
     if (price <= 0) return jsonError("Үнэ зөв оруулна уу");
@@ -127,12 +153,25 @@ export async function PATCH(request: Request) {
       images,
       category_id: body.category_id,
     };
-    const { data, error } = await supabase.from("products").update(payload).eq("id", id).select("id,name,slug,description,benefits,price,stock,is_active,is_featured,images,category_id").single();
+    const { data, error } = await supabase.from("products").update(payload).eq("id", id).select(productSelect).single();
     if (error) {
       logProductAdmin("update_error", { id, code: error.code, message: error.message });
       return jsonError(productSaveError(error.message), 500);
     }
-    return ok({ message: "Бүтээгдэхүүн амжилттай шинэчлэгдлээ.", product: data });
+    const { error: deleteVariantError } = await supabase.from("product_variants").delete().eq("product_id", id).eq("name", "size");
+    if (deleteVariantError) {
+      logProductAdmin("delete_variants_error", { id, code: deleteVariantError.code, message: deleteVariantError.message });
+      return jsonError(productSaveError(deleteVariantError.message), 500);
+    }
+    if (variants.length) {
+      const { error: variantError } = await supabase.from("product_variants").insert(variants.map((variant) => ({ ...variant, product_id: id })));
+      if (variantError) {
+        logProductAdmin("update_variants_error", { id, code: variantError.code, message: variantError.message });
+        return jsonError(productSaveError(variantError.message), 500);
+      }
+    }
+    const { data: productWithVariants } = await supabase.from("products").select(productSelect).eq("id", id).single();
+    return ok({ message: "Бүтээгдэхүүн амжилттай шинэчлэгдлээ.", product: productWithVariants || data });
   } else if (body.resource === "product_status") {
     const id = String(body.id || "").trim();
     if (!id) return jsonError("Бүтээгдэхүүний ID олдсонгүй.");
